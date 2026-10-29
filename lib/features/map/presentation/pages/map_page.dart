@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:url_launcher/url_launcher.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/providers/supabase_provider.dart';
 import '../../../../shared/widgets/feedback_views.dart';
@@ -176,12 +176,6 @@ class _MapPageState extends ConsumerState<MapPage> {
                     ),
                   ],
                 ),
-                SimpleAttributionWidget(
-                  source: const Text('OpenStreetMap contributors'),
-                  onTap: () => launchUrl(
-                    Uri.parse('https://www.openstreetmap.org/copyright'),
-                  ),
-                ),
               ],
             ),
             Positioned(
@@ -238,15 +232,6 @@ class _MapPageState extends ConsumerState<MapPage> {
                       ),
                     ),
                   ),
-                  if (own != null && own.accuracy > 100)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(
-                          'Approximate location (+/-${own.accuracy.round()} m). Enable precise location on your device, then tap Recenter.',
-                        ),
-                      ),
-                    ),
                   if (state.error != null ||
                       tracker.problem != null ||
                       _tileError)
