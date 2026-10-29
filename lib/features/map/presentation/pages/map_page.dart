@@ -9,6 +9,7 @@ import '../../../../core/providers/supabase_provider.dart';
 import '../../../../shared/widgets/feedback_views.dart';
 import '../../../circles/data/circles_repository.dart';
 import '../../../friends/data/friends_repository.dart';
+import '../../../profile/data/profile_repository.dart';
 import '../../../location_sharing/application/sharing_controller.dart';
 import '../../../location_sharing/presentation/widgets/sharing_status_card.dart';
 import '../../data/map_tile_provider.dart';
@@ -16,6 +17,7 @@ import '../../../meetups/presentation/widgets/meetup_panel.dart';
 import '../../../meetups/data/meetups_repository.dart';
 import '../../application/map_controller.dart';
 import '../widgets/friend_marker.dart';
+import '../widgets/own_profile_marker.dart';
 import '../widgets/selected_profile_sheet.dart';
 
 class MapPage extends ConsumerStatefulWidget {
@@ -40,6 +42,7 @@ class _MapPageState extends ConsumerState<MapPage> {
     final tracker = ref.watch(locationTrackerProvider);
     final sharing = ref.watch(sharingControllerProvider);
     final config = ref.watch(configProvider);
+    final profile = ref.watch(currentProfileProvider).asData?.value;
     final circles = ref.watch(circlesProvider).asData?.value ?? [];
     final friends = ref.watch(friendsProvider).asData?.value ?? [];
     final meetups = ref.watch(meetupsProvider).asData?.value ?? [];
@@ -127,12 +130,13 @@ class _MapPageState extends ConsumerState<MapPage> {
                     if (own != null)
                       Marker(
                         point: LatLng(own.latitude, own.longitude),
-                        width: 32,
-                        height: 32,
-                        child: const Icon(
-                          Icons.my_location,
-                          color: AppColors.emerald,
-                          size: 30,
+                        width: 96,
+                        height: 108,
+                        // The avatar's center marks the actual coordinate.
+                        alignment: const Alignment(0, -0.26),
+                        child: OwnProfileMarker(
+                          name: profile?.displayName ?? 'You',
+                          avatarPath: profile?.avatarPath,
                         ),
                       ),
                     ...meetups.map(
