@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:geolocator/geolocator.dart';
+import '../../../../shared/widgets/location_permission_action.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../app/theme/app_colors.dart';
@@ -270,7 +270,7 @@ class _MapPageState extends ConsumerState<MapPage> {
                     heroTag: null,
                     tooltip: 'Location settings',
                     backgroundColor: Colors.white,
-                    onPressed: Geolocator.openLocationSettings,
+                    onPressed: () => openLocationPermissions(context, ref),
                     child: const Icon(Icons.settings_outlined),
                   ),
                 ],

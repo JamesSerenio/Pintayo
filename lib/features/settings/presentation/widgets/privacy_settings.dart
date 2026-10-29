@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
+import '../../../../shared/widgets/location_permission_action.dart';
 import '../../../../shared/widgets/feedback_views.dart';
 import '../../../profile/data/profile_repository.dart';
 import '../../../friends/data/friends_repository.dart';
@@ -46,7 +46,7 @@ class PrivacySettings extends ConsumerWidget {
         ListTile(
           leading: const Icon(Icons.location_on_outlined),
           title: const Text('Location permissions'),
-          onTap: Geolocator.openAppSettings,
+          onTap: () => openLocationPermissions(context, ref),
         ),
         ListTile(
           leading: const Icon(Icons.notifications_off_outlined),

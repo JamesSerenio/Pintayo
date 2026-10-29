@@ -40,7 +40,7 @@ class LocationTracker extends ChangeNotifier {
     bool background = false,
     bool requestPermission = true,
   }) async {
-    if (!await Geolocator.isLocationServiceEnabled()) {
+    if (!kIsWeb && !await Geolocator.isLocationServiceEnabled()) {
       throw const AppException(
         'Turn on device location services, then try again.',
       );
@@ -52,10 +52,13 @@ class LocationTracker extends ChangeNotifier {
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
       throw const AppException(
-        'Location access is off. You can still chat. Enable it in Settings when ready.',
+        kIsWeb
+            ? 'Location is blocked in this browser. Open this link in Chrome or Safari and allow location in site permissions.'
+            : 'Location access is off. You can still chat. Enable it in Settings when ready.',
       );
     }
-    if (background &&
+    if (!kIsWeb &&
+        background &&
         requestPermission &&
         defaultTargetPlatform == TargetPlatform.iOS &&
         permission != LocationPermission.always) {
@@ -70,7 +73,7 @@ class LocationTracker extends ChangeNotifier {
       accuracy: LocationAccuracy.high,
       distanceFilter: 10,
     );
-    if (defaultTargetPlatform == TargetPlatform.android) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       settings = AndroidSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 10,
@@ -89,7 +92,7 @@ class LocationTracker extends ChangeNotifier {
               )
             : null,
       );
-    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+    } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
       settings = AppleSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 10,
