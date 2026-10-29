@@ -1,0 +1,7 @@
+{
+  "deno.enable": true,
+  "deno.enablePaths": ["./supabase/functions"],
+  "deno.config": "./supabase/functions/deno.json",
+  "deno.path": "./tools/database/node_modules/deno/deno.exe",
+  "deno.lint": true
+}

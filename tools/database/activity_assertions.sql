@@ -1,0 +1,37 @@
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',false);
+select public.friend_action('00000000-0000-4000-8000-000000000001','unblock');
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',false);
+select public.friend_action('00000000-0000-4000-8000-000000000002','request');
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',false);
+select public.friend_action('00000000-0000-4000-8000-000000000001','accept');
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',false);
+select public.activity_tick('20000000-0000-4000-8000-000000000001',true,(select id from public.conversations),true);
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',false);
+do $$ declare activity jsonb; begin
+ activity:=public.chat_activity((select id from public.conversations));
+ if activity->>'active'<>'true' or activity->>'typing'<>'true' then raise exception 'Foreground activity missing'; end if;
+end $$;
+set role authenticated;
+do $$ begin if(select count(*) from public.activity_sessions)<>1 then raise exception 'Friend activity denied'; end if; end $$;
+reset role;
+update public.profiles set hide_activity=true where id='00000000-0000-4000-8000-000000000001';
+do $$ declare activity jsonb; begin
+ activity:=public.chat_activity((select id from public.conversations));
+ if activity->>'active'<>'false' or activity->>'typing'<>'false' or activity->>'last_active' is not null then raise exception 'Hidden activity leaked'; end if;
+end $$;
+set role authenticated;
+do $$ begin if(select count(*) from public.activity_sessions)<>0 then raise exception 'Activity read leaked hidden status'; end if; end $$;
+reset role;
+update public.profiles set hide_activity=false where id='00000000-0000-4000-8000-000000000001';
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',false);
+select public.activity_tick('20000000-0000-4000-8000-000000000001',false);
+do $$ begin if(select count(*) from public.activity_sessions)<>0 then raise exception 'Background retained foreground activity'; end if; end $$;
+select public.activity_tick('20000000-0000-4000-8000-000000000001',true);
+update public.activity_sessions set expires_at=now()-interval '1 second';
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',false);
+do $$ begin if public.chat_activity((select id from public.conversations))->>'active'<>'false' then raise exception 'Crash/stale session appears active'; end if; end $$;
+select public.register_device('30000000-0000-4000-8000-000000000001','test-only-private-fid','android');
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',false);
+set role authenticated;
+do $$ begin if(select count(*) from public.devices)<>0 then raise exception 'Other device registration leaked'; end if; end $$;
+reset role;

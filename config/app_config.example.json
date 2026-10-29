@@ -1,0 +1,13 @@
+{
+  "SUPABASE_URL": "https://YOUR_PROJECT_REF.supabase.co",
+  "SUPABASE_PUBLISHABLE_KEY": "YOUR_PUBLIC_PUBLISHABLE_KEY",
+  "SUPABASE_PROJECT_REF": "YOUR_PROJECT_REF",
+  "FIREBASE_PROJECT_ID": "pintayo",
+  "FIREBASE_MESSAGING_SENDER_ID": "759625922563",
+  "ENABLE_PUSH": false,
+  "TILE_URL": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  "APP_ID": "com.example.pintayo",
+  "INVITE_BASE": "pintayo://app",
+  "MOVING_SECONDS": 15,
+  "STATIONARY_SECONDS": 60
+}

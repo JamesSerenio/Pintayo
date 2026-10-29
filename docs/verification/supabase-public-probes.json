@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-10-29T06:56:18.577Z",
+  "project": "djqnavpwrkgcylwvdoxa.supabase.co",
+  "authenticatedUser": false,
+  "results": [
+    {
+      "probe": "auth_settings",
+      "status": 200,
+      "emailEnabled": true,
+      "signupDisabled": false
+    },
+    {
+      "probe": "profiles_anonymous",
+      "status": 401,
+      "code": "42501"
+    },
+    {
+      "probe": "devices_anonymous",
+      "status": 401,
+      "code": "42501"
+    },
+    {
+      "probe": "search_anonymous",
+      "status": 401,
+      "code": "42501"
+    }
+  ]
+}

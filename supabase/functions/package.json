@@ -1,0 +1,17 @@
+{
+  "name": "pintayo-edge-functions",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.99.0",
+    "jose": "6.1.0"
+  },
+  "devDependencies": {
+    "@types/deno": "^2.0.0",
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.0"
+  }
+}

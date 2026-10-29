@@ -1,0 +1,24 @@
+project_id = "pintayo"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[auth]
+enabled = true
+site_url = "pintayo://app/auth"
+additional_redirect_urls = ["pintayo://app/auth", "pintayo://app/recovery"]
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+
+[functions.send-push]
+verify_jwt = false

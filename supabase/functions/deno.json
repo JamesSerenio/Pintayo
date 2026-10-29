@@ -1,0 +1,14 @@
+{
+  "imports": {
+    "jose": "npm:jose@6.1.0",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.99.0"
+  },
+  "compilerOptions": {
+    "strict": true
+  },
+  "tasks": {
+    "check": "deno check send-push/index.ts _shared/fcm_test.ts _shared/push_dispatcher_test.ts",
+    "test": "deno test --allow-env _shared/",
+    "lint": "deno lint ."
+  }
+}

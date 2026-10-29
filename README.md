@@ -21,7 +21,7 @@ flutter run --dart-define-from-file=config/app_config.json
 flutter build apk --dart-define-from-file=config/app_config.json
 ```
 
-Without configuration, `flutter run` shows the branded availability screen. It does not pretend to connect. Follow [Supabase setup](docs/supabase_setup.md) before testing sign-in. Push is optional and disabled by default; see [FCM setup](docs/fcm_setup.md). Android debug HTTP is allowed only for local development by the debug manifest.
+`flutter run -d chrome` uses the PinTayo public Supabase URL and publishable client key by default and opens sign-in when signed out. Dart defines can override these defaults for another environment. Explicitly empty URL and key show the availability screen. Follow [Supabase setup](docs/supabase_setup.md) before testing sign-in. Push is optional and disabled by default; see [FCM setup](docs/fcm_setup.md). Android debug HTTP is allowed only for local development by the debug manifest.
 
 On macOS, configure the real bundle ID and signing team, then:
 

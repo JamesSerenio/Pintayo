@@ -1,0 +1,111 @@
+create extension if not exists pgcrypto;
+create schema if not exists private;
+revoke all on schema private from public;
+create table public.profiles(id uuid primary key references auth.users on delete cascade, username text not null check(username ~ '^[a-zA-Z0-9_]{3,24}$'), first_name text not null default '',last_name text not null default '',display_name text not null check(length(display_name) between 1 and 80),avatar_path text,hide_activity boolean not null default false,last_active timestamptz,onboarded boolean not null default false);
+create unique index username_ci on public.profiles(lower(username));
+create table public.blocks(owner uuid references public.profiles on delete cascade,target uuid references public.profiles on delete cascade,primary key(owner,target),check(owner<>target));
+create table public.friendships(id uuid primary key default gen_random_uuid(),requester uuid not null references public.profiles,recipient uuid not null references public.profiles,status text not null default 'pending' check(status in('pending','accepted')),created_at timestamptz not null default now(),check(requester<>recipient));
+create unique index friendship_pair on public.friendships(least(requester,recipient),greatest(requester,recipient));
+create index friendship_recipient on public.friendships(recipient);
+create table public.circles(id uuid primary key default gen_random_uuid(),owner uuid not null references public.profiles,name text not null check(length(name) between 1 and 60));
+create table public.circle_members(circle_id uuid references public.circles on delete cascade,user_id uuid references public.profiles,accepted boolean not null default false,primary key(circle_id,user_id));
+create table public.sharing_sessions(id uuid primary key default gen_random_uuid(),owner uuid not null references public.profiles,state text not null check(state in('active','paused','stopped')),expires_at timestamptz,created_at timestamptz not null default now());
+create unique index one_session on public.sharing_sessions(owner) where state<>'stopped';
+create table public.sharing_recipients(id uuid primary key default gen_random_uuid(),session_id uuid references public.sharing_sessions on delete cascade,friend_id uuid references public.profiles,circle_id uuid references public.circles on delete cascade,check(num_nonnulls(friend_id,circle_id)=1));
+create table public.latest_locations(owner uuid primary key references public.profiles,latitude double precision not null check(latitude between -90 and 90),longitude double precision not null check(longitude between -180 and 180),accuracy double precision not null check(accuracy between 0 and 1000),fixed_at timestamptz not null,received_at timestamptz not null default now());
+create table public.location_inbox(recipient uuid references public.profiles,owner uuid references public.profiles,latitude double precision not null,longitude double precision not null,accuracy double precision not null,fixed_at timestamptz not null,primary key(recipient,owner));
+create table public.conversations(id uuid primary key default gen_random_uuid(),a uuid not null references public.profiles,b uuid not null references public.profiles,check(a<b),unique(a,b));
+create table public.messages(id uuid primary key,conversation_id uuid not null references public.conversations,sender uuid not null references public.profiles,body text check(length(body)<=4000),attachment text,created_at timestamptz not null default now(),delivered_at timestamptz,seen_at timestamptz,check(coalesce(length(trim(body)),0)>0 or attachment is not null));
+create index message_page on public.messages(conversation_id,created_at desc,id);
+create table public.devices(owner uuid references public.profiles,installation uuid not null,token text not null unique,platform text not null,updated_at timestamptz not null default now(),primary key(owner,installation));
+create table public.notifications(id uuid primary key default gen_random_uuid(),recipient uuid not null references public.profiles,kind text not null,entity_id uuid not null,created_at timestamptz not null default now(),dispatched_at timestamptz,lease_until timestamptz,attempts integer not null default 0,unique(recipient,kind,entity_id));
+create table public.meetups(id uuid primary key default gen_random_uuid(),owner uuid not null references public.profiles,title text not null check(length(title) between 1 and 100),latitude double precision not null check(latitude between -90 and 90),longitude double precision not null check(longitude between -180 and 180),expires_at timestamptz not null default now()+interval '1 day');
+create table public.meetup_guests(meetup_id uuid references public.meetups on delete cascade,user_id uuid references public.profiles,status text check(status in('Papunta na','Nandito na')),primary key(meetup_id,user_id));
+
+create function private.blocked(x uuid,y uuid) returns boolean language sql stable security definer set search_path='' as $$ select exists(select 1 from public.blocks where(owner=x and target=y)or(owner=y and target=x)); $$;
+create function private.friends(x uuid,y uuid) returns boolean language sql stable security definer set search_path='' as $$ select not private.blocked(x,y) and exists(select 1 from public.friendships where status='accepted' and least(requester,recipient)=least(x,y) and greatest(requester,recipient)=greatest(x,y)); $$;
+create function private.member(c uuid,u uuid) returns boolean language sql stable security definer set search_path='' as $$ select exists(select 1 from public.circle_members where circle_id=c and user_id=u and accepted); $$;
+create function private.can_locate(o uuid,r uuid) returns boolean language sql stable security definer set search_path='' as $$ select o=r or(not private.blocked(o,r) and exists(select 1 from public.sharing_sessions s join public.sharing_recipients t on t.session_id=s.id where s.owner=o and s.state='active' and(s.expires_at is null or s.expires_at>now()) and((t.friend_id=r and private.friends(o,r))or(t.circle_id is not null and private.member(t.circle_id,o) and private.member(t.circle_id,r))))); $$;
+create function private.in_chat(c uuid,u uuid) returns boolean language sql stable security definer set search_path='' as $$ select exists(select 1 from public.conversations where id=c and u in(a,b)); $$;
+
+do $$ declare t text; begin foreach t in array array['profiles','blocks','friendships','circles','circle_members','sharing_sessions','sharing_recipients','latest_locations','location_inbox','conversations','messages','devices','notifications','meetups','meetup_guests'] loop execute format('alter table public.%I enable row level security',t); end loop; end $$;
+create policy profile_read on public.profiles for select to authenticated using(id=auth.uid());
+create policy profile_insert on public.profiles for insert to authenticated with check(id=auth.uid());
+create policy profile_update on public.profiles for update to authenticated using(id=auth.uid()) with check(id=auth.uid());
+create policy block_read on public.blocks for select to authenticated using(owner=auth.uid());
+create policy friend_read on public.friendships for select to authenticated using(auth.uid() in(requester,recipient));
+create policy circle_read on public.circles for select to authenticated using(owner=auth.uid() or private.member(id,auth.uid()));
+create policy member_read on public.circle_members for select to authenticated using(user_id=auth.uid() or private.member(circle_id,auth.uid()));
+create policy session_read on public.sharing_sessions for select to authenticated using(owner=auth.uid());
+create policy audience_read on public.sharing_recipients for select to authenticated using(exists(select 1 from public.sharing_sessions where id=session_id and owner=auth.uid()));
+create policy own_fix on public.latest_locations for select to authenticated using(owner=auth.uid());
+-- RLS runs for every Postgres Changes delivery; channel membership grants no coordinates.
+create policy inbox_read on public.location_inbox for select to authenticated using(recipient=auth.uid() and private.can_locate(owner,auth.uid()));
+create policy conversation_read on public.conversations for select to authenticated using(auth.uid() in(a,b));
+create policy message_read on public.messages for select to authenticated using(private.in_chat(conversation_id,auth.uid()));
+create policy device_owner on public.devices for all to authenticated using(owner=auth.uid()) with check(owner=auth.uid());
+create policy notification_read on public.notifications for select to authenticated using(recipient=auth.uid());
+create policy meetup_read on public.meetups for select to authenticated using(owner=auth.uid() or exists(select 1 from public.meetup_guests where meetup_id=id and user_id=auth.uid() and not private.blocked(owner,auth.uid())));
+create policy guest_read on public.meetup_guests for select to authenticated using(user_id=auth.uid());
+
+create function public.search_people(query text) returns table(id uuid,username text,display_name text,avatar_path text) language sql stable security definer set search_path='' as $$ select p.id,p.username,p.display_name,p.avatar_path from public.profiles p where auth.uid() is not null and p.id<>auth.uid() and not private.blocked(p.id,auth.uid()) and(lower(p.username) like lower(replace(replace(query,'%','\%'),'_','\_'))||'%' or p.id::text=query) and length(query)>=3 order by p.username limit 20; $$;
+create function public.person(person_id uuid) returns jsonb language sql stable security definer set search_path='' as $$ select jsonb_build_object('id',id,'username',username,'display_name',display_name,'avatar_path',avatar_path,'last_active',case when not hide_activity and private.friends(id,auth.uid()) then last_active end,'hide_activity',hide_activity) from public.profiles where auth.uid() is not null and(id=auth.uid() or private.friends(id,auth.uid()) or exists(select 1 from public.friendships where auth.uid() in(requester,recipient) and id in(requester,recipient))); $$;
+create function public.friend_action(target_id uuid,action text) returns void language plpgsql security definer set search_path='' as $$ declare u uuid:=auth.uid(); begin
+ if u is null or target_id=u then raise exception 'Invalid friend'; end if;
+ if action='block' then insert into public.blocks values(u,target_id) on conflict do nothing; delete from public.friendships where least(requester,recipient)=least(u,target_id) and greatest(requester,recipient)=greatest(u,target_id);
+ elsif action='unblock' then delete from public.blocks where owner=u and target=target_id;
+ elsif action='request' then if private.blocked(u,target_id) then raise exception 'Unavailable'; end if; insert into public.friendships(requester,recipient) values(u,target_id) on conflict do nothing; insert into public.notifications(recipient,kind,entity_id) select target_id,'friend_request',id from public.friendships where requester=u and recipient=target_id and status='pending' on conflict do nothing;
+ elsif action='accept' then update public.friendships set status='accepted' where requester=target_id and recipient=u and not private.blocked(u,target_id);
+ elsif action in('remove','decline','cancel') then delete from public.friendships where(action='remove' and status='accepted' and u in(requester,recipient) and target_id in(requester,recipient))or(action='decline' and recipient=u and requester=target_id and status='pending')or(action='cancel' and requester=u and recipient=target_id and status='pending');
+ else raise exception 'Unknown action'; end if;
+ delete from public.location_inbox where(owner=u or recipient=u) and not private.can_locate(owner,recipient); end $$;
+create function public.circle_action(action text,circle uuid default null,target uuid default null,title text default null) returns uuid language plpgsql security definer set search_path='' as $$ declare u uuid:=auth.uid(); c uuid:=circle; begin
+ if u is null then raise exception 'Sign in required'; end if;
+ if action='create' then insert into public.circles(owner,name) values(u,title) returning id into c; insert into public.circle_members values(c,u,true);
+ elsif action='invite' then if not exists(select 1 from public.circles where id=c and owner=u) or not private.friends(u,target) then raise exception 'Not allowed'; end if; insert into public.circle_members values(c,target,false) on conflict do nothing;
+ elsif action='accept' then update public.circle_members set accepted=true where circle_id=c and user_id=u;
+ elsif action='leave' then if exists(select 1 from public.circles where id=c and owner=u) then delete from public.circles where id=c; else delete from public.circle_members where circle_id=c and user_id=u; end if;
+ else raise exception 'Unknown action'; end if;
+ delete from public.location_inbox where not private.can_locate(owner,recipient); return c; end $$;
+create function public.share_start(friends uuid[],circles uuid[],minutes integer default 15) returns uuid language plpgsql security definer set search_path='' as $$ declare u uuid:=auth.uid(); s uuid; f uuid; c uuid; begin
+ if u is null or minutes not in(0,15,60) or cardinality(friends)+cardinality(circles)=0 then raise exception 'Choose an audience and duration'; end if;
+ update public.sharing_sessions set state='stopped' where owner=u and state<>'stopped'; delete from public.location_inbox where owner=u;
+ insert into public.sharing_sessions(owner,state,expires_at) values(u,'active',case when minutes=0 then null else now()+make_interval(mins=>minutes) end) returning id into s;
+ foreach f in array friends loop if not private.friends(u,f) then raise exception 'Accepted friends only'; end if; insert into public.sharing_recipients(session_id,friend_id) values(s,f); end loop;
+ foreach c in array circles loop if not private.member(c,u) then raise exception 'Accepted circles only'; end if; insert into public.sharing_recipients(session_id,circle_id) values(s,c); end loop; return s; end $$;
+create function public.share_state(new_state text) returns void language plpgsql security definer set search_path='' as $$ begin if new_state not in('active','paused','stopped') then raise exception 'Invalid state'; end if; update public.sharing_sessions set state=new_state where owner=auth.uid() and state<>'stopped' and(expires_at is null or expires_at>now()); if new_state<>'active' then delete from public.location_inbox where owner=auth.uid(); end if; end $$;
+create function public.publish_location(lat double precision,lng double precision,accuracy_m double precision,fix_time timestamptz) returns void language plpgsql security definer set search_path='' as $$ declare u uuid:=auth.uid(); begin
+ if u is null or not exists(select 1 from public.sharing_sessions where owner=u and state='active' and(expires_at is null or expires_at>now())) then raise exception 'Sharing is off'; end if;
+ if fix_time>now()+interval '30 seconds' or fix_time<now()-interval '5 minutes' then raise exception 'Stale fix'; end if;
+ insert into public.latest_locations values(u,lat,lng,accuracy_m,fix_time,now()) on conflict(owner) do update set latitude=excluded.latitude,longitude=excluded.longitude,accuracy=excluded.accuracy,fixed_at=excluded.fixed_at,received_at=now() where excluded.fixed_at>public.latest_locations.fixed_at;
+ if not found then return; end if;
+ delete from public.location_inbox where owner=u and not private.can_locate(u,recipient);
+ insert into public.location_inbox select p.id,u,lat,lng,accuracy_m,fix_time from public.profiles p where p.id<>u and private.can_locate(u,p.id) on conflict(recipient,owner) do update set latitude=excluded.latitude,longitude=excluded.longitude,accuracy=excluded.accuracy,fixed_at=excluded.fixed_at; end $$;
+create function public.open_chat(friend uuid) returns uuid language plpgsql security definer set search_path='' as $$ declare u uuid:=auth.uid(); c uuid; begin if not private.friends(u,friend) then raise exception 'Accepted friends only'; end if; insert into public.conversations(a,b) values(least(u,friend),greatest(u,friend)) on conflict(a,b) do update set a=excluded.a returning id into c; return c; end $$;
+create function public.send_message(message_id uuid,chat uuid,body_text text default null,photo text default null) returns public.messages language plpgsql security definer set search_path='' as $$ declare u uuid:=auth.uid(); c public.conversations; m public.messages; r uuid; begin
+ select * into c from public.conversations where id=chat and u in(a,b);
+ if c.id is null or not private.friends(c.a,c.b) then raise exception 'Conversation unavailable'; end if;
+ if photo is not null and(split_part(photo,'/',1)<>chat::text or split_part(photo,'/',2)<>u::text) then raise exception 'Invalid attachment'; end if;
+ insert into public.messages(id,conversation_id,sender,body,attachment) values(message_id,chat,u,body_text,photo) on conflict(id) do nothing returning * into m;
+ if m.id is null then select * into m from public.messages where id=message_id and conversation_id=chat and sender=u; if m.id is null then raise exception 'Identifier conflict'; end if; end if;
+ r:=case when c.a=u then c.b else c.a end; insert into public.notifications(recipient,kind,entity_id) values(r,'message',m.id) on conflict do nothing; return m; end $$;
+create function public.ack_messages(chat uuid,seen boolean default false) returns void language plpgsql security definer set search_path='' as $$ begin if not private.in_chat(chat,auth.uid()) then raise exception 'Not allowed'; end if; update public.messages set delivered_at=coalesce(delivered_at,now()),seen_at=case when seen then coalesce(seen_at,now()) else seen_at end where conversation_id=chat and sender<>auth.uid() and(delivered_at is null or(seen and seen_at is null)); end $$;
+create function public.activity() returns void language sql security definer set search_path='' as $$ update public.profiles set last_active=now() where id=auth.uid(); $$;
+create function public.create_meetup(title text,lat double precision,lng double precision,guests uuid[],circle uuid default null) returns uuid language plpgsql security definer set search_path='' as $$ declare m uuid; g uuid; begin if auth.uid() is null then raise exception 'Sign in required'; end if; if circle is not null and not private.member(circle,auth.uid()) then raise exception 'Not a member'; end if; insert into public.meetups(owner,title,latitude,longitude) values(auth.uid(),title,lat,lng) returning id into m; foreach g in array guests loop if not private.friends(auth.uid(),g) then raise exception 'Accepted friends only'; end if; insert into public.meetup_guests values(m,g,null) on conflict do nothing; end loop; if circle is not null then insert into public.meetup_guests select m,user_id,null from public.circle_members where circle_id=circle and accepted and not private.blocked(auth.uid(),user_id) on conflict do nothing; end if; return m; end $$;
+create function public.meetup_status(meetup uuid,new_status text) returns void language plpgsql security definer set search_path='' as $$ begin update public.meetup_guests set status=new_status where meetup_id=meetup and user_id=auth.uid() and exists(select 1 from public.meetups where id=meetup and expires_at>now() and not private.blocked(owner,auth.uid())); end $$;
+
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types) values('avatars','avatars',false,2097152,array['image/jpeg']),('attachments','attachments',false,5242880,array['image/jpeg']);
+create policy avatar_insert on storage.objects for insert to authenticated with check(bucket_id='avatars' and(storage.foldername(name))[1]=auth.uid()::text);
+create policy avatar_read on storage.objects for select to authenticated using(bucket_id='avatars');
+create policy attachment_insert on storage.objects for insert to authenticated with check(bucket_id='attachments' and(storage.foldername(name))[2]=auth.uid()::text and private.in_chat(((storage.foldername(name))[1])::uuid,auth.uid()) and exists(select 1 from public.conversations where id=((storage.foldername(name))[1])::uuid and private.friends(a,b)));
+create policy attachment_read on storage.objects for select to authenticated using(bucket_id='attachments' and private.in_chat(((storage.foldername(name))[1])::uuid,auth.uid()));
+create policy chat_realtime_read on realtime.messages for select to authenticated using(realtime.topic() ~ '^chat:[0-9a-f-]{36}$' and private.in_chat(substring(realtime.topic() from 6)::uuid,auth.uid()) and exists(select 1 from public.conversations where id=substring(realtime.topic() from 6)::uuid and private.friends(a,b)));
+create policy chat_realtime_write on realtime.messages for insert to authenticated with check(realtime.topic() ~ '^chat:[0-9a-f-]{36}$' and private.in_chat(substring(realtime.topic() from 6)::uuid,auth.uid()) and exists(select 1 from public.conversations where id=substring(realtime.topic() from 6)::uuid and private.friends(a,b)));
+alter publication supabase_realtime add table public.location_inbox,public.messages,public.friendships,public.notifications;
+grant usage on schema private to authenticated;
+grant execute on all functions in schema private to authenticated;
+revoke execute on all functions in schema public from public,anon;
+grant execute on all functions in schema public to authenticated;
+grant select on all tables in schema public to authenticated;
+grant insert,update on public.profiles to authenticated;
+grant insert,update,delete on public.devices to authenticated;

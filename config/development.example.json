@@ -1,0 +1,10 @@
+{
+  "SUPABASE_URL": "http://127.0.0.1:54321",
+  "SUPABASE_PUBLISHABLE_KEY": "replace-with-local-public-key",
+  "TILE_URL": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  "APP_ID": "com.pintayo.mobile",
+  "INVITE_BASE": "pintayo://app",
+  "ENABLE_PUSH": false,
+  "MOVING_SECONDS": 15,
+  "STATIONARY_SECONDS": 60
+}
