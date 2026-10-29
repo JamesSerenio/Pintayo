@@ -88,6 +88,8 @@ class _MapPageState extends ConsumerState<MapPage> {
                     ? const LatLng(12.8, 122.5)
                     : LatLng(own.latitude, own.longitude),
                 initialZoom: own == null ? 5 : 15,
+                minZoom: 3,
+                maxZoom: 19,
                 onMapReady: () {
                   _ready = true;
                 },
@@ -107,6 +109,7 @@ class _MapPageState extends ConsumerState<MapPage> {
                   userAgentPackageName: config.appId,
                   panBuffer: 0,
                   maxZoom: 19,
+                  maxNativeZoom: 19,
                   errorTileCallback: (_, _, _) {
                     if (!_tileError) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -115,6 +118,19 @@ class _MapPageState extends ConsumerState<MapPage> {
                     }
                   },
                 ),
+                if (own != null && own.accuracy.isFinite && own.accuracy > 0)
+                  CircleLayer(
+                    circles: [
+                      CircleMarker(
+                        point: LatLng(own.latitude, own.longitude),
+                        radius: own.accuracy,
+                        useRadiusInMeter: true,
+                        color: AppColors.emerald.withValues(alpha: 0.08),
+                        borderColor: AppColors.emerald.withValues(alpha: 0.25),
+                        borderStrokeWidth: 1,
+                      ),
+                    ],
+                  ),
                 AnimatedFriendLayer(
                   state: state,
                   onSelected: (fix) => showModalBottomSheet(
@@ -222,6 +238,15 @@ class _MapPageState extends ConsumerState<MapPage> {
                       ),
                     ),
                   ),
+                  if (own != null && own.accuracy > 100)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(
+                          'Approximate location (+/-${own.accuracy.round()} m). Enable precise location on your device, then tap Recenter.',
+                        ),
+                      ),
+                    ),
                   if (state.error != null ||
                       tracker.problem != null ||
                       _tileError)
@@ -248,7 +273,7 @@ class _MapPageState extends ConsumerState<MapPage> {
                     tooltip: 'Recenter and follow',
                     backgroundColor: Colors.white,
                     onPressed: () => runAction(context, () async {
-                      if (tracker.position == null) await tracker.enable();
+                      await tracker.refreshPosition();
                       if (mounted) setState(() => _follow = true);
                     }),
                     child: Icon(

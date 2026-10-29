@@ -154,6 +154,21 @@ class LocationTracker extends ChangeNotifier {
     _notify();
   }
 
+  Future<void> refreshPosition() async {
+    if (_stream == null) {
+      await enable(background: sharing);
+      return;
+    }
+    await _onPosition(
+      await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          timeLimit: Duration(seconds: 25),
+        ),
+      ),
+    );
+  }
+
   Future<void> stop() async {
     sharing = false;
     await _stream?.cancel();
