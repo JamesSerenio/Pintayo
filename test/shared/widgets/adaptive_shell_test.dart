@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pintayo/app/shell/adaptive_app_shell.dart';
@@ -7,6 +8,7 @@ import '../../support/preview_capture.dart';
 
 void main() {
   setUpAll(loadPreviewFonts);
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final width in [320.0, 1024.0]) {
     testWidgets(
       'real empty shell renders at $width without location permission',

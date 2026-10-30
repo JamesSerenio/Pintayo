@@ -1,3 +1,4 @@
+import '../../application/request_attention.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,12 +17,38 @@ class FriendsPage extends ConsumerStatefulWidget {
   ConsumerState<FriendsPage> createState() => _FriendsPageState();
 }
 
-class _FriendsPageState extends ConsumerState<FriendsPage> {
+class _FriendsPageState extends ConsumerState<FriendsPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs;
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTab,
+    );
+    _tabs.addListener(_viewRequests);
+    if (widget.initialTab == 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _viewRequests());
+    }
+  }
+
+  void _viewRequests() {
+    if (!mounted || _tabs.index != 1) return;
+    final ids = (ref.read(friendsProvider).asData?.value ?? [])
+        .where((f) => f.incoming && !f.accepted)
+        .map((f) => f.id);
+    ref.read(requestAttentionProvider).mark('requests', ids);
+    ref.read(requestAttentionProvider).mark('friends', ids);
+  }
+
   final _search = TextEditingController();
   List<Profile>? _results;
   bool _searching = false;
   @override
   void dispose() {
+    _tabs.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -76,7 +103,15 @@ class _FriendsPageState extends ConsumerState<FriendsPage> {
   );
   @override
   Widget build(BuildContext context) {
+    ref.listen(friendsProvider, (_, next) {
+      if (next.hasValue) _viewRequests();
+    });
     final friends = ref.watch(friendsProvider);
+    final requests = (friends.asData?.value ?? [])
+        .where((f) => f.incoming && !f.accepted)
+        .map((f) => f.id)
+        .toList();
+    final attention = ref.watch(requestAttentionProvider);
     return DefaultTabController(
       length: 3,
       initialIndex: widget.initialTab,
@@ -105,15 +140,32 @@ class _FriendsPageState extends ConsumerState<FriendsPage> {
               ],
             ),
           ),
-          const TabBar(
-            tabs: [
-              Tab(text: 'Friends'),
-              Tab(text: 'Requests'),
-              Tab(text: 'Circles'),
-            ],
+          ListenableBuilder(
+            listenable: attention,
+            builder: (_, _) => TabBar(
+              controller: _tabs,
+              onTap: (index) {
+                if (index == 1) attention.mark('requests', requests);
+              },
+              tabs: [
+                const Tab(text: 'Friends'),
+                Tab(
+                  child: Badge(
+                    isLabelVisible: attention.count('requests', requests) > 0,
+                    label: Text('${attention.count('requests', requests)}'),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('Requests'),
+                    ),
+                  ),
+                ),
+                const Tab(text: 'Circles'),
+              ],
+            ),
           ),
           Expanded(
             child: TabBarView(
+              controller: _tabs,
               children: [
                 Column(
                   children: [

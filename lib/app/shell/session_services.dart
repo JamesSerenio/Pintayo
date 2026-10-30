@@ -1,3 +1,5 @@
+import '../../features/friends/application/request_attention.dart';
+import '../../features/presence/application/online_friends.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,6 +60,8 @@ class _SessionServicesState extends ConsumerState<SessionServices>
     if (uid == _user) return;
     if (_channel != null) _client?.removeChannel(_channel!);
     _channel = null;
+    ref.invalidate(requestAttentionProvider);
+    ref.invalidate(onlineFriendsProvider);
     ref.invalidate(currentProfileProvider);
     ref.invalidate(friendsProvider);
     ref.invalidate(conversationsProvider);
@@ -78,6 +82,8 @@ class _SessionServicesState extends ConsumerState<SessionServices>
   Future<void> _catchUp() async {
     if (!_active || _user == null) return;
     try {
+      ref.invalidate(friendsProvider);
+      ref.invalidate(onlineFriendsProvider);
       final repository = ref.read(chatRepositoryProvider);
       final chats = await repository.conversations();
       for (final chat in chats) {
@@ -105,7 +111,7 @@ class _SessionServicesState extends ConsumerState<SessionServices>
         client
             .channel('inbox:$uid')
             .onPostgresChanges(
-              event: PostgresChangeEvent.insert,
+              event: PostgresChangeEvent.all,
               schema: 'public',
               table: 'messages',
               callback: (event) async {

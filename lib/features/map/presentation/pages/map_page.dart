@@ -29,6 +29,7 @@ class MapPage extends ConsumerStatefulWidget {
 class _MapPageState extends ConsumerState<MapPage> {
   final _map = MapController();
   late final TileProvider _tiles = ref.read(tileProviderFactoryProvider)();
+  String _audienceKey = '';
   bool _follow = true, _tileError = false, _ready = false;
   @override
   void dispose() {
@@ -50,11 +51,29 @@ class _MapPageState extends ConsumerState<MapPage> {
       listenable: Listenable.merge([state, tracker, sharing]),
       builder: (_, _) {
         final own = tracker.position;
-        if (_ready && _follow && own != null) {
+        final visible = state.visible.toList();
+        final audienceKey =
+            '${state.circleId}:${visible.map((f) => f.owner).toList()..sort()}:${sharing.session?.id}:${sharing.session?.state}';
+        final participantsChanged = audienceKey != _audienceKey;
+        if (_ready && (participantsChanged || _follow)) {
+          _audienceKey = audienceKey;
+          final points = [
+            if (own != null) LatLng(own.latitude, own.longitude),
+            ...visible.map((fix) => LatLng(fix.latitude, fix.longitude)),
+          ];
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && _ready) {
+            if (!mounted || !_ready || points.isEmpty) return;
+            if (visible.isNotEmpty) {
+              _map.fitCamera(
+                CameraFit.bounds(
+                  bounds: LatLngBounds.fromPoints(points),
+                  padding: const EdgeInsets.fromLTRB(64, 130, 64, 90),
+                  maxZoom: 16,
+                ),
+              );
+            } else if (own != null && _follow) {
               _map.move(
-                LatLng(own.latitude, own.longitude),
+                points.first,
                 _map.camera.zoom < 10 ? 15 : _map.camera.zoom,
               );
             }
@@ -91,7 +110,7 @@ class _MapPageState extends ConsumerState<MapPage> {
                 minZoom: 3,
                 maxZoom: 19,
                 onMapReady: () {
-                  _ready = true;
+                  setState(() => _ready = true);
                 },
                 onPositionChanged: (_, gesture) {
                   if (gesture && _follow) setState(() => _follow = false);
@@ -250,7 +269,7 @@ class _MapPageState extends ConsumerState<MapPage> {
             ),
             Positioned(
               right: 20,
-              bottom: 225,
+              bottom: 24,
               child: Column(
                 children: [
                   FloatingActionButton.small(
@@ -273,17 +292,35 @@ class _MapPageState extends ConsumerState<MapPage> {
                     onPressed: () => openLocationPermissions(context, ref),
                     child: const Icon(Icons.settings_outlined),
                   ),
+                  const SizedBox(height: 10),
+                  FloatingActionButton.small(
+                    heroTag: null,
+                    tooltip: 'Location sharing',
+                    backgroundColor: Colors.white,
+                    onPressed: () => showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      showDragHandle: true,
+                      builder: (_) => SafeArea(
+                        child: SingleChildScrollView(
+                          child: ListenableBuilder(
+                            listenable: sharing,
+                            builder: (_, _) => SharingStatusCard(
+                              sharing: sharing,
+                              audience: audience,
+                              visibleCount: state.visible.length,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    child: Icon(
+                      sharing.session?.state == 'active'
+                          ? Icons.share_location
+                          : Icons.lock_outline,
+                    ),
+                  ),
                 ],
-              ),
-            ),
-            Positioned(
-              bottom: 30,
-              left: 16,
-              right: 16,
-              child: SharingStatusCard(
-                sharing: sharing,
-                audience: audience,
-                visibleCount: state.visible.length,
               ),
             ),
           ],

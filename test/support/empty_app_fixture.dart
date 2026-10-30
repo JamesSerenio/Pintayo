@@ -1,3 +1,5 @@
+import 'package:pintayo/features/friends/application/request_attention.dart';
+import 'package:pintayo/features/presence/application/online_friends.dart';
 // Explicit empty-state test fixture. No fake friends or coordinates in the app.
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -46,7 +48,12 @@ class TransparentTiles extends TileProvider {
   );
 }
 
-Widget emptyAppFixture(Widget child) {
+Widget emptyAppFixture(
+  Widget child, {
+  List<Conversation> chats = const [],
+  List<Friendship> friends = const [],
+  Set<String> online = const {},
+}) {
   final client = SupabaseClient(
     'https://test.invalid',
     'test-public-key',
@@ -58,9 +65,16 @@ Widget emptyAppFixture(Widget child) {
   final connectivity = ConnectivityService(Connectivity());
   return ProviderScope(
     overrides: [
-      friendsProvider.overrideWith((ref) async => []),
+      currentProfileProvider.overrideWith((ref) async => null),
+      requestAttentionProvider.overrideWith((ref) {
+        final value = RequestAttention('empty-fixture');
+        ref.onDispose(value.dispose);
+        return value;
+      }),
+      onlineFriendsProvider.overrideWith((ref) => Stream.value(online)),
+      friendsProvider.overrideWith((ref) async => friends),
       circlesProvider.overrideWith((ref) async => []),
-      conversationsProvider.overrideWith((ref) async => []),
+      conversationsProvider.overrideWith((ref) async => chats),
       meetupsProvider.overrideWith((ref) async => []),
       sharingRepositoryProvider.overrideWithValue(sharing),
       locationTrackerProvider.overrideWith((ref) {
