@@ -24,6 +24,8 @@ The forward worker verifies the JWT with Auth and asks a caller-scoped RPC to va
 
 Global photo deletion queues the original object for removal and revokes new signing access. The Edge Function removes it through the Storage API, then acknowledges the queue. Failed removals remain queued. Unfinished forward copies become eligible for cleanup after one hour. Cleanup never selects objects referenced by a live message. Existing signed URLs or independently downloaded content cannot be retroactively erased by a UI action; URL expiry, cache lifetime and successful object removal determine remaining access to previously issued URLs.
 
+The client commits global deletion directly through the sender-validated `delete_message_everyone` RPC, then requests worker cleanup in the background. A missing Edge Function cannot block the database tombstone. The live public endpoint probe on October 30 returned `404 NOT_FOUND` for `message-actions` and `401 / 42501` for the anonymous deletion RPC probe. No user message was changed by these unauthenticated probes. Function deployment is still required for physical photo cleanup and forwarding.
+
 Copy writes complete text/captions without UI metadata. Supported secure web browsers use ClipboardItem with a PNG Blob (and caption text when supplied). Clipboard permissions can deny the operation. Native/text-only clipboard builds clearly explain the photo-copy limitation and never substitute a private storage URL.
 
 ## Hosted setup still required
