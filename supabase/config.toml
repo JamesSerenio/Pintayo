@@ -22,3 +22,7 @@ enable_confirmations = true
 
 [functions.send-push]
 verify_jwt = false
+
+# Explicit getUser JWT validation (supports publishable client keys).
+[functions.message-actions]
+verify_jwt = false

@@ -9,6 +9,6 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["_shared/**/*.ts", "send-push/**/*.ts"],
+  "include": ["_shared/**/*.ts", "send-push/**/*.ts", "message-actions/**/*.ts"],
   "exclude": ["node_modules"]
 }

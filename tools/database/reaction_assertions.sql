@@ -27,7 +27,7 @@ do $$ begin
  exception when insufficient_privilege then null; end;
 end $$;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000011',true);
-select public.react_to_message('00000000-0000-4000-8000-000000000201','😂');
+select public.react_to_message('00000000-0000-4000-8000-000000000201','😆');
 select public.react_to_message('00000000-0000-4000-8000-000000000201',null);
 do $$ begin
  if (select count(*) from public.message_reactions)<>1 then raise exception 'Removal affected partner reaction'; end if;

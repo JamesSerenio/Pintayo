@@ -1,3 +1,5 @@
+import '../../application/message_actions_controller.dart';
+import '../widgets/reply_composer_preview.dart';
 import '../../application/message_reactions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -112,6 +114,31 @@ class _ConversationPageState extends ConsumerState<ConversationPage>
                                 MessageBubble(
                                   key: ValueKey(controller.messages[i].id),
                                   message: controller.messages[i],
+                                  replyTarget:
+                                      controller.replyTargets[controller
+                                          .messages[i]
+                                          .replyTo],
+                                  replyName:
+                                      controller
+                                              .replyTargets[controller
+                                                  .messages[i]
+                                                  .replyTo]
+                                              ?.sender ==
+                                          user
+                                      ? 'You'
+                                      : partner?.displayName ?? 'Friend',
+                                  onActions: () => ref
+                                      .read(
+                                        messageActionsControllerProvider(
+                                          widget.conversationId,
+                                        ),
+                                      )
+                                      .open(
+                                        context,
+                                        ref,
+                                        controller.messages[i],
+                                        controller.messages[i].sender == user,
+                                      ),
                                   mine: controller.messages[i].sender == user,
                                   senderName: partner?.displayName ?? 'Friend',
                                   senderAvatar: partner?.avatarPath,
@@ -170,12 +197,25 @@ class _ConversationPageState extends ConsumerState<ConversationPage>
         ),
         ListenableBuilder(
           listenable: controller,
-          builder: (_, _) => MessageComposer(
-            enabled: online,
-            sending: controller.sending,
-            onSend: (text) => controller.send(text: text),
-            onPhoto: () => controller.send(photo: true),
-            onChanged: presence.changedText,
+          builder: (_, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (controller.replyingTo != null)
+                ReplyComposerPreview(
+                  message: controller.replyingTo!,
+                  name: controller.replyingTo!.sender == user
+                      ? 'You'
+                      : partner?.displayName ?? 'Friend',
+                  onCancel: () => controller.reply(null),
+                ),
+              MessageComposer(
+                enabled: online,
+                sending: controller.sending,
+                onSend: (text) => controller.send(text: text),
+                onPhoto: () => controller.send(photo: true),
+                onChanged: presence.changedText,
+              ),
+            ],
           ),
         ),
       ],

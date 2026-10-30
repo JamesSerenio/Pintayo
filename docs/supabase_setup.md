@@ -2,6 +2,8 @@
 
 ## Message reactions
 
+The next additive migration, `202610300002_chat_message_actions.sql`, adds forwarding, replies and deletion state. Deploy the `message-actions` Edge Function as well; see [chat message actions](chat_message_actions.md) for the complete setup and cleanup schedule.
+
 Apply pending migration [202610300001_message_reactions.sql](../supabase/migrations/202610300001_message_reactions.sql) before using emoji reactions. With an authenticated, linked CLI, inspect `npx.cmd supabase migration list --linked`, then `npx.cmd supabase db push --dry-run` and `npx.cmd supabase db push`. Do not rerun older migrations manually. This workspace has validated the migration locally; it has not applied it to the hosted project.
 
 Long-press a message to choose a reaction. Choosing your existing emoji removes it; choosing another replaces it. Each participant has one reaction per message. Reactions persist in Postgres and refresh through Realtime with reconnect recovery. Only chat participants can read them; writes require accepted, unblocked friends. Reactions never acknowledge delivery or reading. The migration adds the table to the Realtime publication.

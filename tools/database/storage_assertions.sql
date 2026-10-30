@@ -4,6 +4,8 @@ set role authenticated;
 insert into storage.objects(bucket_id,name) values('avatars','00000000-0000-4000-8000-000000000001/test.jpg');
 update public.profiles set avatar_path='00000000-0000-4000-8000-000000000001/test.jpg' where id=auth.uid();
 insert into storage.objects(bucket_id,name) values('attachments',current_setting('test.chat')||'/00000000-0000-4000-8000-000000000001/test.jpg');
+-- A pending upload is readable only by its uploader until attached to a message.
+select public.send_chat_message('00000000-0000-4000-8000-000000000301',current_setting('test.chat')::uuid,null,current_setting('test.chat')||'/00000000-0000-4000-8000-000000000001/test.jpg');
 reset role;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',false);
 set role authenticated;

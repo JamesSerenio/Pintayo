@@ -134,6 +134,17 @@ class _SessionServicesState extends ConsumerState<SessionServices>
             .onPostgresChanges(
               event: PostgresChangeEvent.all,
               schema: 'public',
+              table: 'hidden_messages',
+              filter: PostgresChangeFilter(
+                type: PostgresChangeFilterType.eq,
+                column: 'owner',
+                value: uid,
+              ),
+              callback: (_) => ref.invalidate(conversationsProvider),
+            )
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
               table: 'friendships',
               callback: (_) => ref.invalidate(friendsProvider),
             )

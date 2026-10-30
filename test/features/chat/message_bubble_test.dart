@@ -54,11 +54,12 @@ void main() {
     expect(find.text('❤️'), findsOneWidget);
     await tester.longPress(find.text('Hello there'));
     await tester.pumpAndSettle();
-    expect(find.text('React to message'), findsOneWidget);
+    expect(find.text('Copy'), findsOneWidget);
+    expect(find.text('Delete'), findsOneWidget);
     await tester.tap(find.text('👍'));
     await tester.pumpAndSettle();
     expect(chosen, '👍');
-    expect(find.text('React to message'), findsNothing);
+    expect(find.text('Copy'), findsNothing);
   });
 
   testWidgets('photo opens a full screen viewer with zoom and close', (

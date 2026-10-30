@@ -76,18 +76,25 @@ class ChatRepository {
   List<Message> _decode(dynamic rows) => (rows as List)
       .map((r) => Message.fromJson(Map<String, dynamic>.from(r)))
       .toList();
-  Future<void> send(String chat, String id, String? body, String? photo) async {
+  Future<void> send(
+    String chat,
+    String id,
+    String? body,
+    String? photo, {
+    String? replyTo,
+  }) async {
     if (!await connectivity.isConnected) {
       throw const AppException('You’re offline. Connect to send.');
     }
     await client
         .rpc(
-          'send_message',
+          'send_chat_message',
           params: {
             'message_id': id,
             'chat': chat,
             'body_text': body,
             'photo': photo,
+            'reply_to': replyTo,
           },
         )
         .timeout(const Duration(seconds: 20));
