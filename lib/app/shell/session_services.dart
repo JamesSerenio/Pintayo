@@ -1,3 +1,4 @@
+import '../../features/chat/application/message_reactions.dart';
 import '../../features/friends/application/request_attention.dart';
 import '../../features/presence/application/online_friends.dart';
 import 'dart:async';
@@ -70,6 +71,7 @@ class _SessionServicesState extends ConsumerState<SessionServices>
     ref.invalidate(appPresenceProvider);
     ref.invalidate(conversationPresenceProvider);
     ref.invalidate(chatControllerProvider);
+    ref.invalidate(messageReactionsProvider);
     ref.invalidate(chatPartnerProvider);
     ref.invalidate(circlesProvider);
     ref.invalidate(blocksProvider);

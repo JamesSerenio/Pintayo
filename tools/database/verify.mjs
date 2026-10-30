@@ -35,6 +35,7 @@ await db.exec(await readFile(new URL('assertions.sql', import.meta.url), 'utf8')
 await db.exec(await readFile(new URL('activity_assertions.sql', import.meta.url), 'utf8'));
 await db.exec(await readFile(new URL('storage_assertions.sql', import.meta.url), 'utf8'));
 await db.exec(await readFile(new URL('push_assertions.sql', import.meta.url), 'utf8'));
+await db.exec(await readFile(new URL('reaction_assertions.sql', import.meta.url), 'utf8'));
 console.log('PostgreSQL migration, authorization, and behavior assertions passed.');
 } catch (error) {
   console.error(`Database verification failed: ${error.message}`);

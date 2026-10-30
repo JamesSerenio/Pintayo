@@ -1,3 +1,4 @@
+import '../../application/message_reactions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/connectivity_service.dart';
@@ -45,6 +46,9 @@ class _ConversationPageState extends ConsumerState<ConversationPage>
   @override
   Widget build(BuildContext context) {
     final controller = ref.watch(chatControllerProvider(widget.conversationId));
+    final reactions = ref.watch(
+      messageReactionsProvider(widget.conversationId),
+    );
     final presence = ref.watch(
       conversationPresenceProvider(widget.conversationId),
     );
@@ -56,20 +60,9 @@ class _ConversationPageState extends ConsumerState<ConversationPage>
     final user = ref.watch(chatRepositoryProvider).userId;
     final chat = Column(
       children: [
-        ListenableBuilder(
-          listenable: presence,
-          builder: (_, _) => ListTile(
-            leading: ProfileAvatar(
-              name: partner?.displayName ?? '?',
-              path: partner?.avatarPath,
-            ),
-            title: Text(partner?.displayName ?? 'Conversation'),
-            subtitle: Text(presence.typing ? 'Typing…' : presence.status),
-          ),
-        ),
         Expanded(
           child: ListenableBuilder(
-            listenable: controller,
+            listenable: Listenable.merge([controller, reactions]),
             builder: (_, _) {
               if (controller.loading) {
                 return const Center(child: CircularProgressIndicator());
@@ -111,12 +104,55 @@ class _ConversationPageState extends ConsumerState<ConversationPage>
                                       : null,
                                 ),
                               ),
-                              ...controller.messages.reversed.map(
-                                (message) => MessageBubble(
-                                  message: message,
-                                  mine: message.sender == user,
+                              for (
+                                var i = controller.messages.length - 1;
+                                i >= 0;
+                                i--
+                              )
+                                MessageBubble(
+                                  key: ValueKey(controller.messages[i].id),
+                                  message: controller.messages[i],
+                                  mine: controller.messages[i].sender == user,
+                                  senderName: partner?.displayName ?? 'Friend',
+                                  senderAvatar: partner?.avatarPath,
+                                  grouped:
+                                      i > 0 &&
+                                      controller.messages[i - 1].sender ==
+                                          controller.messages[i].sender &&
+                                      controller.messages[i].createdAt
+                                              .difference(
+                                                controller
+                                                    .messages[i - 1]
+                                                    .createdAt,
+                                              )
+                                              .inMinutes <
+                                          2,
+                                  showAvatar:
+                                      i == controller.messages.length - 1 ||
+                                      controller.messages[i + 1].sender !=
+                                          controller.messages[i].sender ||
+                                      controller.messages[i + 1].createdAt
+                                              .difference(
+                                                controller
+                                                    .messages[i]
+                                                    .createdAt,
+                                              )
+                                              .inMinutes >=
+                                          2,
+                                  reactions:
+                                      reactions.values[controller
+                                          .messages[i]
+                                          .id] ??
+                                      const {},
+                                  ownReaction: reactions
+                                      .values[controller.messages[i].id]?[user],
+                                  onReact: online
+                                      ? (emoji) => reactions.react(
+                                          controller.messages[i].id,
+                                          emoji,
+                                        )
+                                      : null,
                                 ),
-                              ),
                               if (controller.hasOlder)
                                 Center(
                                   child: TextButton(
@@ -145,7 +181,40 @@ class _ConversationPageState extends ConsumerState<ConversationPage>
       ],
     );
     return Scaffold(
-      appBar: AppBar(title: const Text('A little closer')),
+      appBar: AppBar(
+        titleSpacing: 0,
+        title: ListenableBuilder(
+          listenable: presence,
+          builder: (_, _) => Row(
+            children: [
+              ProfileAvatar(
+                name: partner?.displayName ?? '?',
+                path: partner?.avatarPath,
+                size: 40,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      partner?.displayName ?? 'Conversation',
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      presence.typing ? 'Typing…' : presence.status,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
       body: LayoutBuilder(
         builder: (_, constraints) =>
             constraints.maxWidth >= AppSpacing.tabletBreakpoint

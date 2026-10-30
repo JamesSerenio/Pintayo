@@ -1,5 +1,13 @@
 # Supabase setup
 
+## Message reactions
+
+Apply pending migration [202610300001_message_reactions.sql](../supabase/migrations/202610300001_message_reactions.sql) before using emoji reactions. With an authenticated, linked CLI, inspect `npx.cmd supabase migration list --linked`, then `npx.cmd supabase db push --dry-run` and `npx.cmd supabase db push`. Do not rerun older migrations manually. This workspace has validated the migration locally; it has not applied it to the hosted project.
+
+Long-press a message to choose a reaction. Choosing your existing emoji removes it; choosing another replaces it. Each participant has one reaction per message. Reactions persist in Postgres and refresh through Realtime with reconnect recovery. Only chat participants can read them; writes require accepted, unblocked friends. Reactions never acknowledge delivery or reading. The migration adds the table to the Realtime publication.
+
+Tap a message to toggle its time and outgoing receipt. Tap an attached photo to open the full-screen viewer and pinch to zoom. Photos continue to use authorized, temporary URLs from the private attachment bucket.
+
 ## Local stack or hosted development project
 
 Install Docker and the Supabase CLI for the local stack. From the repository root:
